@@ -1,0 +1,4 @@
+.tmp*
+Logs
+dataset
+__pycache__
