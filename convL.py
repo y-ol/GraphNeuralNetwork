@@ -28,7 +28,6 @@ class ConvolutionLayer(keras.layers.Layer):
         ref_B = inputs['ref_B']
 
         return {
-            'X': tf.nn.bias_add(c.convolution(X, ref_A, ref_B) @ self.w, self.b),
-            'ref_A': inputs['ref_A'],
-            'ref_B': inputs['ref_B']
+            **inputs,  # decomposition
+            'X': tf.nn.bias_add(c.normalization(c.convolution(c.normalization(X, ref_A, ref_B), ref_A, ref_B), ref_A, ref_B) @ self.w, self.b)
         }

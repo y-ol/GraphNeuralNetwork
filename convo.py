@@ -25,3 +25,11 @@ def convolution(X, ref_A, ref_B):
                         X_a, shape=tf.shape(X)) + X
 
     return X_aggregate
+
+
+def normalization(X, ref_A, ref_B):
+    X_norm = tf.ones(shape=tf.shape(X)[0])
+    d = convolution(X_norm, ref_A, ref_B) + 1
+    d_rsqrt = tf.math.rsqrt(d)
+
+    return ((tf.reshape(d_rsqrt, (-1, 1)) * X))  # -1 autocomplete
