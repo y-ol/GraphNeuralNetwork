@@ -34,7 +34,7 @@ class ConvolutionLayer(keras.layers.Layer):
 
         mask = 1
         conv_X = (c.normalization(
-            X + c.convolution(c.normalization(X, ref_A, ref_B), ref_A, ref_B), ref_A, ref_B))
+            X + c.convolution(c.normalization(X, ref_A, ref_B, mask), ref_A, ref_B, mask), ref_A, ref_B, mask))
         result = activation(tf.nn.bias_add(conv_X @ self.w, self.b))
 
         if drop_type is None:
@@ -55,15 +55,14 @@ class ConvolutionLayer(keras.layers.Layer):
                 'X': c.dropout_mask(p, (c.get_shape(result, True))) * result
             }
         elif drop_type == 'DropEdge':
-            mask = c.get_edgedropshape(X, ref_A, True)
+            mask = c.dropout_mask(p, (c.get_edgedropshape(X, ref_A, True)))
             return {
                 **inputs,
-                'X': activation(tf.nn.bias_add(c.normalization(X + c.convolution(c.normalization(
-                    X, ref_A, ref_B, mask), ref_A, ref_B, mask), ref_A, ref_B, mask)) @ self.w, self.b)
+                'X': result
             }
         elif drop_type == 'GDC':
-            mask = c.get_edgedropshape(X, ref_A, False)
+            mask = c.dropout_mask(p, (c.get_edgedropshape(X, ref_A, False)))
             return {
                 **inputs,
-                'X': activation(tf.nn.bias_add(c.normalization(X + c.convolution(c.normalization(
-                    X, ref_A, ref_B, mask), ref_A, ref_B, mask), ref_A, ref_B, mask)) @ self.w, self.b)}
+                'X': result
+            }

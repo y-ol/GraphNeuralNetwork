@@ -20,7 +20,7 @@ def dropout_mask(p, shape):
     p_list = (tf.random.uniform(
         shape=shape, minval=0, maxval=1, dtype=tf.dtypes.float32))
     mask = p_list >= p
-    return tf.cast(mask, dtype=tf.dtypes.int32)
+    return tf.cast(mask, dtype=tf.dtypes.float32)
 
 
 def get_shape(tensor, row_wise):
@@ -37,6 +37,7 @@ def get_edgedropshape(tensor, ref, row_wise):
         shape = (tf.shape(ref)[0], 1)
     else:
         # dimensionality of the feature vectors
+        # [] is intern slicing op with 0
         shape = (tf.shape(ref)[0], tf.shape(tensor)[1])
     return shape
 
@@ -57,7 +58,7 @@ def convolution(X, ref_A,  ref_B, mask=None):
 
 def normalization(X, ref_A, ref_B, mask=None):
     X_norm = tf.ones(shape=(tf.shape(X)[0], tf.shape(
-        mask)[1] if mask is not None else 1))  # num_nodes
+        mask)[1] if mask is not None and mask != 1 else 1))  # num_nodes
     d = convolution(X_norm, ref_A, ref_B, mask) + 1
     d_rsqrt = tf.math.rsqrt(d)
 
