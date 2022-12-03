@@ -32,36 +32,23 @@ def converter(graph):
 
 dataset = GraphPropPredDataset(name='ogbg-molhiv')
 
-split_idx = dataset.get_idx_split()
-train_idx, valid_idx, test_idx = split_idx["train"], split_idx["valid"], split_idx["test"]
-labels = dataset.labels
-i = 0
-graph, label = dataset[i]  # destructuring
-num_Graphs = len(dataset)
 
-ref_A = dataset.graphs[0]["edge_index"][0]
-ref_B = dataset.graphs[0]["edge_index"][1]
+def make_inputs(dataset):
 
-# fy.first(fy.chunks(30, dataset.graphs))  # OGB --- not saved in any var
+    split_idx = dataset.get_idx_split()
+    final_batch = dict()
+    final_labels = dict()
+    for key, value in split_idx.items():
+        final_labels[key] = list((fy.chunks(30, dataset.labels[value])))
 
-# returns an iterable object of type map - not subscriptable
-chunks = map(batching, fy.chunks(30, map(converter, dataset.graphs)))
-first_batch = fy.first(chunks)  # type = class dictionary
+    for key, value in split_idx.items():
+        final_batch[key] = list(map(batching, fy.chunks(
+            30, map(converter, np.array(dataset.graphs, dtype=object)[value]))))
+    for key, value in final_batch.items():
+        final_batch[key] = (tf.data.Dataset.from_generator((lambda: zip(value, final_labels[key])), output_signature=(({'X': tf.TensorSpec(shape=(None, 9), dtype=tf.float32),
+                                                                                                                        'ref_A': tf.TensorSpec(shape=None, dtype=tf.int32),
+                                                                                                                        'ref_B': tf.TensorSpec(shape=None, dtype=tf.int32),
+                                                                                                                        'num_nodes': tf.TensorSpec(shape=None, dtype=tf.int32)},
+                                                                                                                       tf.TensorSpec(shape=None, dtype=tf.float32)))))
 
-
-""""do: 
-take chunks and create 30x 'X', 30x 'ref_A, 30x 'ref_B' 
-counter for list 
-
-"""
-
-# input = chunks -> partition of whole  dataset in 30
-
-
-def create_batches(dataset):
-    list_of_batches = tf.constant([])
-    i = 0
-    for entry in dataset.graphs:
-        list_of_batches[i] = fy.first(fy.chunks)
-        i += len(chunks[i]['X'] + chunks[i]['ref_A'] + chunks[i]['ref_B'])
-    return list_of_batches
+    return final_batch
