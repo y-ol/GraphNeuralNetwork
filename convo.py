@@ -43,27 +43,35 @@ def get_edgedropshape(tensor, ref, row_wise):
 
 
 def convolution(X, ref_A,  ref_B, mask=None):
-
     #X_a = tf.gather(X, ref_A, axis=0)
     X_b = tf.gather(X, ref_B, axis=0)
     if mask is not None:
         X_b *= mask
     X_aggregate = tf.scatter_nd(tf.expand_dims(
         ref_A, axis=- 1), X_b, shape=tf.shape(X))
-
     return X_aggregate
 
-# python efficiency -->apply twice in layer  corresponds to D^(-1/2) X
 
+def normalization(X, ref_A, ref_B, mask=None, node_mask=False):
 
-def normalization(X, ref_A, ref_B, mask=None):
-    X_norm = tf.ones(shape=(tf.shape(X)[0], tf.shape(
-        mask)[1] if mask is not None and mask != 1 else 1))  # num_nodes
-    d = convolution(X_norm, ref_A, ref_B, mask) + 1
+    if node_mask:
+        X_norm = mask
+        d = convolution(X_norm, ref_A, ref_B)
+    else:
+        X_norm = tf.ones(shape=(tf.shape(X)[0], tf.shape(
+            mask)[1] if mask is not None else 1))  # num_nodes
+        d = convolution(X_norm, ref_A, ref_B, mask)
+
     d_rsqrt = tf.math.rsqrt(d)
-
+    d_rsqrt = tf.where(tf.math.is_inf(d_rsqrt), .0, (d_rsqrt))
     return d_rsqrt * X  # if mask && 1 dim value >1
 
 
-# EdgeDrop mask on 1dim == 1 Line 46
-# GraphDropConnect mask on 1dim > 1
+def normalize_convo(X, ref_A, ref_B, mask=None, node_mask=False):
+    conv_X = normalization(X, ref_A, ref_B, mask, node_mask)
+    if node_mask:
+        conv_X = convolution(conv_X * mask, ref_A, ref_B)
+    else:
+        conv_X = convolution(conv_X, ref_A, ref_B, mask)
+    conv_X = normalization(conv_X, ref_A, ref_B, mask, node_mask)
+    return X + conv_X

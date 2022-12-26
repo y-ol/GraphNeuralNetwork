@@ -14,15 +14,22 @@ class ConvolutionLayer(keras.layers.Layer):
 
     def get_config(self):
         config = super().get_config()
+        return {
+          **config,
+          "p": self.p,
+          "activation": keras.activations.serialize(self.activation),
+          "units": self.units,
+          "drop_type": self.drop_type
+        }
 
     def build(self, input_shape):
 
         self.w = self.add_weight(shape=(input_shape['X'][-1], self.units),
                                  initializer='GlorotUniform',
-                                 trainable=True)
+                                 trainable=True, name="w")
         self.b = self.add_weight(shape=(self.units,),
-                                 initializer='GlorotUniform',
-                                 trainable=True)
+                                 initializer='Zeros',
+                                 trainable=True, name="b")
 
     def call(self, inputs):
         drop_type = self.drop_type
@@ -32,37 +39,21 @@ class ConvolutionLayer(keras.layers.Layer):
         ref_A = inputs['ref_A']
         ref_B = inputs['ref_B']
 
-        mask = 1
-        conv_X = (c.normalization(
-            X + c.convolution(c.normalization(X, ref_A, ref_B, mask), ref_A, ref_B, mask), ref_A, ref_B, mask))
-        result = activation(tf.nn.bias_add(conv_X @ self.w, self.b))
-
-        if drop_type is None:
-            return {
-                **inputs,
-                'X': result
-            }
-        elif drop_type == 'DropOut':
-            return {
-                **inputs,
-                'X': c.dropout_mask(p, (c.get_shape(result, False))) * result
-
-
-            }
+        mask = None
+        node_mask = False
+        if drop_type == 'DropOut':
+            X = c.dropout_mask(p, (c.get_shape(X, False))) * X
         elif drop_type == 'NodeSampling':
-            return {
-                **inputs,
-                'X': c.dropout_mask(p, (c.get_shape(result, True))) * result
-            }
+            mask = c.dropout_mask(p, (c.get_shape(X, True)))
+            node_mask = True
         elif drop_type == 'DropEdge':
             mask = c.dropout_mask(p, (c.get_edgedropshape(X, ref_A, True)))
-            return {
-                **inputs,
-                'X': result
-            }
         elif drop_type == 'GDC':
             mask = c.dropout_mask(p, (c.get_edgedropshape(X, ref_A, False)))
-            return {
-                **inputs,
-                'X': result
-            }
+
+        conv_X = c.normalize_convo(X, ref_A, ref_B, mask, node_mask)
+
+        return {
+            **inputs,
+            'X': activation(tf.nn.bias_add(conv_X@self.w, self.b))
+        }

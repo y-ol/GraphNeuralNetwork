@@ -3,6 +3,7 @@ import tensorflow as tf
 import ogb
 from ogb.graphproppred import GraphPropPredDataset
 import funcy as fy
+import math
 
 
 def batching(graphs):
@@ -30,25 +31,42 @@ def converter(graph):
             }
 
 
-dataset = GraphPropPredDataset(name='ogbg-molhiv')
+dataset1 = GraphPropPredDataset(name='ogbg-molhiv')
+dataset2 = GraphPropPredDataset(name='ogbg-molpcba')
 
 
-def make_inputs(dataset):
+def combine_graphs_labels(graph_batches, label_batches, include_mask=False):
+    if not include_mask:
+        return zip(graph_batches, label_batches)
+    for graph_batch, label_batch in zip(graph_batches, label_batches):
+        label_batch = np.array(label_batch)
+        label_mask = label_batch == label_batch
+        graph_batch["label_mask"] = label_mask
+        yield graph_batch, label_batch[label_mask].reshape((-1, 1))
+
+
+def make_tf_datasets(dataset, batchsize=30, include_mask=False):
 
     split_idx = dataset.get_idx_split()
     final_batch = dict()
     final_labels = dict()
     for key, value in split_idx.items():
-        final_labels[key] = list((fy.chunks(30, dataset.labels[value])))
+        final_labels[key] = list((fy.chunks(batchsize, dataset.labels[value])))
 
     for key, value in split_idx.items():
         final_batch[key] = list(map(batching, fy.chunks(
-            30, map(converter, np.array(dataset.graphs, dtype=object)[value]))))
+            batchsize, map(converter, np.array(dataset.graphs, dtype=object)[value]))))
+    graph_signature = {'X': tf.TensorSpec(shape=(None, 9), dtype=tf.float32),
+                       'ref_A': tf.TensorSpec(shape=None, dtype=tf.int32),
+                       'ref_B': tf.TensorSpec(shape=None, dtype=tf.int32),
+                       'num_nodes': tf.TensorSpec(shape=None, dtype=tf.int32)}
+    if include_mask:
+        graph_signature['label_mask'] = tf.TensorSpec(
+            shape=(None, dataset.num_tasks), dtype=tf.bool)
+    output_signature = (graph_signature,
+                        tf.TensorSpec(shape=(None, 1 if include_mask else dataset.num_tasks), dtype=tf.float32))
     for key, value in final_batch.items():
-        final_batch[key] = (tf.data.Dataset.from_generator((lambda: zip(value, final_labels[key])), output_signature=(({'X': tf.TensorSpec(shape=(None, 9), dtype=tf.float32),
-                                                                                                                        'ref_A': tf.TensorSpec(shape=None, dtype=tf.int32),
-                                                                                                                        'ref_B': tf.TensorSpec(shape=None, dtype=tf.int32),
-                                                                                                                        'num_nodes': tf.TensorSpec(shape=None, dtype=tf.int32)},
-                                                                                                                       tf.TensorSpec(shape=None, dtype=tf.float32)))))
+        final_batch[key] = tf.data.Dataset.from_generator(
+            lambda: combine_graphs_labels(value, final_labels[key], include_mask), output_signature=output_signature)
 
     return final_batch
