@@ -2,7 +2,6 @@ import tensorflow as tf
 from tensorflow import keras
 import numpy as np
 import convo as c
-import model
 import batching
 import poolingL
 import modularized as m
@@ -20,12 +19,12 @@ class GConvoLayer(keras.layers.Layer):
     def get_config(self):
         config = super().get_config()
         return {
-          **config,
-          "p": self.p,
-          "eps": self.eps,
-          "activation": keras.activations.serialize(self.activation),
-          "units": self.units,
-          "drop_type": self.drop_type
+            **config,
+            "p": self.p,
+            "eps": self.eps,
+            "activation": keras.activations.serialize(self.activation),
+            "units": self.units,
+            "drop_type": self.drop_type
         }
 
     def build(self, input_shape):
