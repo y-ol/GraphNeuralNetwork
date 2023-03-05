@@ -15,11 +15,11 @@ class ConvolutionLayer(keras.layers.Layer):
     def get_config(self):
         config = super().get_config()
         return {
-          **config,
-          "p": self.p,
-          "activation": keras.activations.serialize(self.activation),
-          "units": self.units,
-          "drop_type": self.drop_type
+            **config,
+            "p": self.p,
+            "activation": keras.activations.serialize(self.activation),
+            "units": self.units,
+            "drop_type": self.drop_type
         }
 
     def build(self, input_shape):
@@ -43,12 +43,16 @@ class ConvolutionLayer(keras.layers.Layer):
         node_mask = False
         if drop_type == 'DropOut':
             X = c.dropout_mask(p, (c.get_shape(X, False))) * X
-        elif drop_type == 'NodeSampling':
+        elif drop_type == 'NormNodeSampling':
             mask = c.dropout_mask(p, (c.get_shape(X, True)))
-            node_mask = True
+            node_mask = True  # normalisation factors change
+        elif drop_type == 'NodeSampling':
+            X = c.dropout_mask(p, (c.get_shape(X, True))) * X
         elif drop_type == 'DropEdge':
+            # normalisation factors change
             mask = c.dropout_mask(p, (c.get_edgedropshape(X, ref_A, True)))
         elif drop_type == 'GDC':
+            # normalisation factors change
             mask = c.dropout_mask(p, (c.get_edgedropshape(X, ref_A, False)))
 
         conv_X = c.normalize_convo(X, ref_A, ref_B, mask, node_mask)

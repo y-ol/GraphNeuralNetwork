@@ -25,7 +25,7 @@ def dropout_mask(p, shape):
 
 def get_shape(tensor, row_wise):
     if row_wise:
-        shape = ((tf.shape(tensor)[0]), 1)  # [14,9]
+        shape = ((tf.shape(tensor)[0]), 1)
 
     else:
         shape = tf.shape(tensor)
@@ -74,4 +74,10 @@ def normalize_convo(X, ref_A, ref_B, mask=None, node_mask=False):
     else:
         conv_X = convolution(conv_X, ref_A, ref_B, mask)
     conv_X = normalization(conv_X, ref_A, ref_B, mask, node_mask)
-    return X + conv_X
+    return X + conv_X  # self connection
+
+# node mask --> true : NodeDropOut, false : EdgeDropOut/GDC
+# mask = dropout_mask result
+
+
+# NodeSampling wie im paper

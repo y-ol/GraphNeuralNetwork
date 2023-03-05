@@ -1,4 +1,12 @@
 import numpy as np
+from tensorflow.python.ops.numpy_ops import np_config
+
+# Paper: Special case of M_{tgt}, where all values are 1 (nothing masked--> global)
+# --> Description of my case sufficient
+# eq 2 not here
+# D_{tgt} = D, bc no mask
+# 3,4 normalization merged in code
+np_config.enable_numpy_behavior()
 
 
 def vector_length(array1):

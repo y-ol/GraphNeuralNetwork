@@ -31,18 +31,15 @@ def converter(graph):
             }
 
 
-dataset1 = GraphPropPredDataset(name='ogbg-molhiv')
-dataset2 = GraphPropPredDataset(name='ogbg-molpcba')
-
-
 def combine_graphs_labels(graph_batches, label_batches, include_mask=False):
     if not include_mask:
-        return zip(graph_batches, label_batches)
-    for graph_batch, label_batch in zip(graph_batches, label_batches):
-        label_batch = np.array(label_batch)
-        label_mask = label_batch == label_batch
-        graph_batch["label_mask"] = label_mask
-        yield graph_batch, label_batch[label_mask].reshape((-1, 1))
+        yield from zip(graph_batches, label_batches)
+    else:
+        for graph_batch, label_batch in zip(graph_batches, label_batches):
+            label_batch = np.array(label_batch)
+            label_mask = label_batch == label_batch
+            graph_batch["label_mask"] = label_mask
+            yield graph_batch, label_batch[label_mask].reshape((-1, 1))
 
 
 def make_tf_datasets(dataset, batchsize=30, include_mask=False):
