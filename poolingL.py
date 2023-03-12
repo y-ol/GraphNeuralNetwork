@@ -5,6 +5,9 @@ from abc import ABCMeta, abstractmethod
 import convL
 import convo
 
+# readout = Pooling
+# result tf.datset conversion
+
 
 def add_graph_idx(input):  # segment ids
     n = input['num_nodes']

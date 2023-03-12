@@ -5,7 +5,7 @@ import convL
 import poolingL
 import gin
 
-# First specify input --> no data
+# Method for Model input specification
 
 
 def create_input(dataset, include_mask=False):
@@ -22,17 +22,18 @@ def create_input(dataset, include_mask=False):
 # Inputs with values in batching
 
 
-def create_model(list_layers, initial_input, units=32, activation='relu', output_units=1):
+def create_model(list_layers, initial_input, drop_type, p, units=32, activation='relu', output_units=1):
     output = initial_input
     for element in list_layers:
         if element == 'Convolution':
-            output = convL.ConvolutionLayer(32, activation)(output)
+            output = convL.ConvolutionLayer(
+                units, activation, drop_type, p)(output)
         elif element == 'Pooling':
             output = poolingL.Pooling(activation)(output)
         elif element == 'Dense':
             output = keras.layers.Dense(units, activation)(output)
         elif element == 'ginConvo':
-            output = gin.GConvoLayer(32, activation)(output)
+            output = gin.GConvoLayer(units, activation, drop_type, p)(output)
     output = keras.layers.Dense(units=output_units)(output)
     if 'label_mask' in initial_input:
         output = tf.gather_nd(output, tf.where(
@@ -43,3 +44,5 @@ def create_model(list_layers, initial_input, units=32, activation='relu', output
 
 
 # Node Prediction logic 2do
+# Units = 1 -> Regression
+# Units = num_classes

@@ -26,7 +26,6 @@ def dropout_mask(p, shape):
 def get_shape(tensor, row_wise):
     if row_wise:
         shape = ((tf.shape(tensor)[0]), 1)
-
     else:
         shape = tf.shape(tensor)
     return shape
