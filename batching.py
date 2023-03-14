@@ -2,6 +2,7 @@ import numpy as np
 import tensorflow as tf
 import ogb
 from ogb.graphproppred import GraphPropPredDataset
+from ogb.nodeproppred import NodePropPredDataset
 import funcy as fy
 import math
 
