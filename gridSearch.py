@@ -1,3 +1,4 @@
+from aim import Run
 import tensorflow as tf
 import pandas as pd
 import numpy as np
@@ -6,11 +7,28 @@ import batching as b
 from sklearn.model_selection import ParameterGrid
 from ogb.graphproppred import Evaluator
 from ogb.nodeproppred import Evaluator
+from ogb.graphproppred import GraphPropPredDataset
+from ogb.nodeproppred import NodePropPredDataset
 import json
 import os
 
 
 callback = tf.keras.callbacks.EarlyStopping(monitor='accuracy', patience=50)
+
+
+# aim_test.py
+
+run = Run()
+
+# set training hyperparameters
+run['hparams'] = {
+    'learning_rate': 0.001,
+    'batch_size': 32,
+}
+
+# log metric
+for i in range(10):
+    run.track(i, name='numbers')
 
 param_grid = {'num_layers': [1, 2, 3, 4, 5, 6],
               'learning_rate': [0.0001, 0.001, 0.01],
@@ -82,27 +100,14 @@ def loss_metric(dataset_name):
     return config
 
 
-# JSON reader
-
-def read_contents(json_filename):
-
-
-    # Read contents of JSON file into a dictionary
-with open("my_file.json", "r") as f:
-    data = json.load(f)
-
-# Check if a specific entry exists in the dictionary
-if "my_key" in data:
-    print("Found entry:", data["my_key"])
-else:
-    print("Entry not found.")
-
-
-def create_grid_models(sample, dataset, name_dataset, mask=False):
-    #model_idx = list()
-    tracking = dict()
-    losses = loss_metric(dataset_name=name_dataset)['losses']
-    metrics = loss_metric(dataset_name=name_dataset)['metrics']
+def create_grid_models(sample, dataset_name, mask=False):
+    if dataset_name == 'ogbg-molhiv' or dataset_name == 'ogbg-molpcba':
+        dataset = GraphPropPredDataset(name=dataset_name)
+    else:
+        dataset = NodePropPredDataset(name=dataset_name)
+    training_batch = b.make_tf_datasets(dataset,)
+    losses = loss_metric(dataset_name=dataset_name)['losses']
+    metrics = loss_metric(dataset_name=dataset_name)['metrics']
     for entry in sample:
         activation = entry['activation']
         convo_type = entry['convo_type']
@@ -114,18 +119,12 @@ def create_grid_models(sample, dataset, name_dataset, mask=False):
         units = entry['units']
         param_set = [activation, convo_type, learning_rate,
                      num_layers, optimizer, probability, regularization, units]
-        if param_set not in 'params.json':
+        if True:  # check if already in txt file
+
             model = create_model(activation, convo_type, learning_rate,
                                  num_layers, optimizer, probability, regularization, units, dataset, mask)
-            model.fit(dataset['train'].cashe(),
-                      epochs=100, callbacks=[callback])
-            model.evaluate(b.make_tf_datasets['valid'])
-            tracking[entry] = entry
-            # Write parameter combinations to JSON file
-            with open("params.json", "w") as f:
-                json.dump(tracking, f)
-            # model_idx.append([activation, convo_type, learning_rate,
-            # num_layers, optimizer, probability, regularization, units])
+            model.fit(training_batch, epochs=100, callbacks=[callback])
+            # model.evaluate(b.make_tf_datasets['valid'])
 
         else:
             continue
