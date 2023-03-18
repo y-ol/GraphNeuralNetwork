@@ -13,9 +13,6 @@ import json
 import os
 
 
-callback = tf.keras.callbacks.EarlyStopping(monitor='accuracy', patience=50)
-
-
 # aim_test.py
 
 run = Run()
@@ -103,11 +100,15 @@ def loss_metric(dataset_name):
 def create_grid_models(sample, dataset_name, mask=False):
     if dataset_name == 'ogbg-molhiv' or dataset_name == 'ogbg-molpcba':
         dataset = GraphPropPredDataset(name=dataset_name)
+
     else:
         dataset = NodePropPredDataset(name=dataset_name)
-    training_batch = b.make_tf_datasets(dataset,)
+    training_batch = b.make_tf_datasets(dataset)['train']
+    test_data = b.make_tf_datasets(dataset)['test']
     losses = loss_metric(dataset_name=dataset_name)['losses']
     metrics = loss_metric(dataset_name=dataset_name)['metrics']
+    callback = tf.keras.callbacks.EarlyStopping(
+        monitor='accuracy', patience=50)
     for entry in sample:
         activation = entry['activation']
         convo_type = entry['convo_type']
@@ -119,14 +120,16 @@ def create_grid_models(sample, dataset_name, mask=False):
         units = entry['units']
         param_set = [activation, convo_type, learning_rate,
                      num_layers, optimizer, probability, regularization, units]
-        if True:  # check if already in txt file
+        if True:  # check if already database
 
             model = create_model(activation, convo_type, learning_rate,
                                  num_layers, optimizer, probability, regularization, units, dataset, mask)
-            model.fit(training_batch, epochs=100, callbacks=[callback])
-            # model.evaluate(b.make_tf_datasets['valid'])
+            model.fit(training_batch, epochs=3,
+                      callbacks=[callback])
+            test_predictions = model.predict(test_data)
+            evaluation = model.evaluate(test_data)
 
         else:
             continue
 
-    return model
+    return evaluation
