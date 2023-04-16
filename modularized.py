@@ -8,8 +8,7 @@ import gin
 # Method for Model input specification
 
 
-def create_input(dataset, include_mask=False):
-    node_features = dataset.graphs[0]['node_feat'].shape[-1]
+def create_input(node_features, include_mask=False):
     inputs = {'X': keras.Input(shape=(node_features,), dtype=tf.float32, name='X'),
               'ref_A': keras.Input((), dtype=tf.int32, name='ref_A'),
               'ref_B': keras.Input((), dtype=tf.int32, name='ref_B'),

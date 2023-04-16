@@ -25,8 +25,6 @@ def getLabels(set):
         labels.append(entry[1].numpy())
     return np.concatenate(labels, axis=0)
 
-# metrics to string ??
-
 
 param_grid = {'num_layers': [1, 2, 3, 4, 5, 6],
               'learning_rate': [0.0001, 0.001, 0.01],
@@ -40,8 +38,10 @@ param_grid = {'num_layers': [1, 2, 3, 4, 5, 6],
 param_combos = list(ParameterGrid(param_grid))
 
 
-def create_model(activation, convo_type, learning_rate, num_layers, optimizer, probability, regularization,  units, dataset, mask, **kwargs) -> keras.Model:
-    input = m.create_input(dataset, mask)
+def create_model(activation, convo_type, learning_rate,
+                 num_layers, probability, regularization,  units, node_features, include_mask, loss, metrics, num_tasks,
+                 **kwargs) -> keras.Model:
+    input = m.create_input(node_features, include_mask)
     layer_list = list()
     optimizer = tf.optimizers.Adam(learning_rate=learning_rate)
     for i in range(num_layers):
@@ -51,80 +51,85 @@ def create_model(activation, convo_type, learning_rate, num_layers, optimizer, p
             layer_list.append('ginConvo')
     layer_list += ['Pooling', 'Dense']
 
-    model = m.create_model(layer_list, input, regularization,
-                           probability, units, activation)
+    model: keras.Model = m.create_model(layer_list, input, regularization,
+                                        probability, units, activation, output_units=num_tasks)
 
-    model.compile(optimizer=optimizer,
-                  loss=tf.keras.losses.BinaryCrossentropy(from_logits=True))
+    model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
 
     return model
 
+# TODO: click
+
 
 def config(dataset_name):
-    config = dict()
+    config = dict(include_mask=False)
     if dataset_name == 'ogbg-molhiv':  # binary classification
         config['num_tasks'] = 1
-        config['losses'] = [tf.keras.losses.BinaryCrossentropy(
-            from_logits=True), tf.keras.losses.Hinge()]
-        config['metrics'] = [tf.metrics.AUC, tf.metrics.BinaryAccuracy,
-                             tf.metrics.Precision, tf.metrics.Recall]
+        config['loss'] = tf.keras.losses.BinaryCrossentropy(
+            from_logits=True)
+        config['metrics'] = [tf.metrics.AUC(), tf.metrics.BinaryAccuracy(),
+                             tf.metrics.Precision(), tf.metrics.Recall()]
         config['evaluator'] = g.Evaluator(name='ogbg-molhiv')
     elif dataset_name == 'ogbg-molpcba':
         config['num_tasks'] = 128
-        config['losses'] = [tf.keras.losses.BinaryCrossentropy(
-            from_logits=True), tf.keras.losses.Hinge()]
-        config['metrics'] = [tf.metrics.BinaryAccuracy,
-                             tf.metrics.Precision, tf.metrics.Recall]
+        config['loss'] = tf.keras.losses.BinaryCrossentropy(
+            from_logits=True)
+        config['metrics'] = [tf.metrics.BinaryAccuracy(),
+                             tf.metrics.Precision(), tf.metrics.Recall()]
         config['evaluator'] = g.Evaluator(name='ogbg-molpcba')
+        config['include_mask'] = True
     elif dataset_name == 'ogbn-products':  # multiclass classification
         config['num_tasks'] = 1
-        config['losses'] = [tf.keras.losses.CategoricalCrossentropy(from_logits=True),
-                            tf.keras.losses.CategoricalHinge()]
+        config['loss'] = tf.keras.losses.CategoricalCrossentropy(
+            from_logits=True)
         config['metrics'] = [tf.keras.metrics.CategoricalAccuracy(),
                              tf.keras.metrics.TopKCategoricalAccuracy(k=5)]
         config['evaluator'] = n.Evaluator(name='ogbn-products')
+        # no missing label values
     elif dataset_name == 'ogbn-proteins':  # binary classification
         config['num_tasks'] = 112
-        config['losses'] = [tf.keras.losses.BinaryCrossentropy(
-            from_logits=True), tf.keras.losses.Hinge()]
-        config['metrics'] = [tf.metrics.AUC, tf.metrics.BinaryAccuracy,
-                             tf.metrics.Precision, tf.metrics.Recall]
+        config['loss'] = tf.keras.losses.BinaryCrossentropy(
+            from_logits=True)
+        config['metrics'] = [tf.metrics.AUC(), tf.metrics.BinaryAccuracy(),
+                             tf.metrics.Precision(), tf.metrics.Recall()]
         config['evaluator'] = n.Evaluator(name='ogbn-proteins')
+        # no missing label values
     elif dataset_name == 'ogbn-arxiv':  # multiclass classification
         config['num_tasks'] = 1
-        config['losses'] = [tf.keras.losses.CategoricalCrossentropy(
-            from_logits=True), tf.keras.losses.CategoricalHinge()]
-        config['metrics'] = [tf.metrics.CategoricalAccuracy,
+        config['loss'] = tf.keras.losses.CategoricalCrossentropy(
+            from_logits=True)
+        config['metrics'] = [tf.metrics.CategoricalAccuracy(),
                              tf.metrics.TopKCategoricalAccuracy(k=20)]
         config['evaluator'] = n.Evaluator(name='ogbn-arxiv')
+        # no missing label values
     else:
         raise ValueError(f"Invalid dataset name: {dataset_name}")
 
     return config
 
 
-def create_grid_models(sample, dataset_name, mask=False):
+def create_grid_models(sample, dataset_name):
     if dataset_name == 'ogbg-molhiv' or dataset_name == 'ogbg-molpcba':
         dataset = GraphPropPredDataset(name=dataset_name)
-
     else:
         dataset = NodePropPredDataset(name=dataset_name)
-    experiment_number = 0
-    training_batch = b.make_tf_datasets(dataset)['train']
-    validation_batch = b.make_tf_datasets(dataset)['valid']
-    test_data = b.make_tf_datasets(dataset)['test']
+    experiment_number = 0  # TODO: unique ID for each run based on hparams
+    tfds = b.make_tf_datasets(dataset)
+    training_batch = tfds['train']
+    validation_batch = tfds['valid']
+    test_data = tfds['test']
     # params for callback ?
-    losses = config(dataset_name=dataset_name)['losses']
-    metrics = config(dataset_name=dataset_name)['metrics']
-    evaluator = config(dataset_name=dataset_name)['evaluator']
+    ds_config = config(dataset_name=dataset_name)
+    evaluator = ds_config['evaluator']
 
     callback = [tf.keras.callbacks.EarlyStopping(
-        monitor='accuracy,loss,rocauc', patience=50), aim.tensorflow.AimCallback(
+        monitor='val_loss', patience=50), aim.tensorflow.AimCallback(
         repo='/home/olga/GraphNeuralNetwork', experiment=str(experiment_number))]
     for entry in sample:
-        if True:  # check if already database
-
-            model = create_model(dataset=dataset, mask=mask, **entry)
+        if True:  # TODO: check if already database
+            print(f"[{experiment_number}] Evaluating hparams: {entry}")
+            model = create_model(node_features=dataset.graphs[0]['node_feat'].shape[-1],
+                                 **ds_config, **entry)
             run = Run(repo='/home/olga/GraphNeuralNetwork',
                       experiment=str(experiment_number))
             run['hparams'] = {'num_layers': entry['num_layers'],
