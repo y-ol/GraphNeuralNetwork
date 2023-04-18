@@ -47,16 +47,26 @@ class GConvoLayer(keras.layers.Layer):
 
         # return simple neighbourhood aggregation sum without normalization
         mask = None
-        # node_mask = False --> ??
-
+        node_mask = False
         if drop_type == 'DropOut':
             X = c.dropout_mask(p, (c.get_shape(X, False))) * X
-        elif drop_type == 'NodeSampling':
+        elif drop_type == 'NormNodeSampling':
             mask = c.dropout_mask(p, (c.get_shape(X, True)))
+            node_mask = True  # normalisation factors change
+        elif drop_type == 'NodeSampling':
+            X = c.dropout_mask(p, (c.get_shape(X, True))) * X
         elif drop_type == 'DropEdge':
+            # normalisation factors change
             mask = c.dropout_mask(p, (c.get_edgedropshape(X, ref_A, True)))
-        elif drop_type == ' GDC':
+        elif drop_type == 'GDC':
+            # normalisation factors change
             mask = c.dropout_mask(p, (c.get_edgedropshape(X, ref_A, False)))
+
+        if node_mask:
+            conv_X = X * mask
+            mask = None
+        else:
+            conv_X = X
 
         conv_X = (1 + self.eps) * X + c.convolution(X, ref_A, ref_B, mask)
         result = activation(tf.nn.bias_add(conv_X@self.w1, self.b1))
