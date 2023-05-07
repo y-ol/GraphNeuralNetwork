@@ -183,3 +183,30 @@ def train_and_evaluate(hyperparams, dataset_name, experiment_results_dir='/home/
         # Write hyperparameters list to JSON file
         with open(hyperparams_path, 'w') as f:
             json.dump(hyperparams_list, f)
+
+
+# create method, which sets up the right directory structure 
+
+def setup_directory_structure(hyperparams, dataset_name, experiment_results_dir='/home/olga/GraphNeuralNetwork'):
+    # Load dataset
+    if dataset_name == 'ogbg-molhiv' or dataset_name == 'ogbg-molpcba':
+        dataset = GraphPropPredDataset(name=dataset_name)
+    else:
+        dataset = NodePropPredDataset(name=dataset_name)
+
+    tfds = b.make_tf_datasets(dataset)
+    training_batch = tfds['train']
+    validation_batch = tfds['valid']
+    test_data = tfds['test']
+    ds_config = config(dataset_name=dataset_name)
+    evaluator = ds_config['evaluator']
+
+    # Set up directory structure for experiment results
+    dataset_dir = os.path.join(experiment_results_dir, dataset_name)
+    os.makedirs(dataset_dir, exist_ok=True)
+    hyperparams_path = os.path.join(dataset_dir, 'hyperparams.json')
+    if os.path.exists(hyperparams_path):
+        with open(hyperparams_path, 'r') as f:
+            hyperparams_list = json.load(f)
+    else:
+        hyperparams_list = []
