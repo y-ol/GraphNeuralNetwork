@@ -44,7 +44,11 @@ def combine_graphs_labels(graph_batches, label_batches, include_mask=False):
 
 
 def make_tf_datasets(dataset, batchsize=30, include_mask=False):
-    node_features = dataset.graphs[0]['node_feat'].shape[-1]
+    if hasattr(dataset, "graphs"):
+        graphs = dataset.graphs
+    else:
+        graphs = [dataset.graph]
+    node_features = graphs[0]['node_feat'].shape[-1]
     split_idx = dataset.get_idx_split()
     final_batch = dict()
     final_labels = dict()
@@ -53,7 +57,7 @@ def make_tf_datasets(dataset, batchsize=30, include_mask=False):
 
     for key, value in split_idx.items():
         final_batch[key] = list(map(batching, fy.chunks(
-            batchsize, map(converter, np.array(dataset.graphs, dtype=object)[value]))))
+            batchsize, map(converter, np.array(graphs, dtype=object)[value]))))
     graph_signature = {'X': tf.TensorSpec(shape=(None, node_features), dtype=tf.float32),
                        'ref_A': tf.TensorSpec(shape=None, dtype=tf.int32),
                        'ref_B': tf.TensorSpec(shape=None, dtype=tf.int32),
