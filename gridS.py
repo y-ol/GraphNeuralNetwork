@@ -185,6 +185,11 @@ def config(dataset_name):
 #             json.dump(hyperparams_list, f)
 
 
+def check_file_existence(folder_path, subfolder_name, filename):
+    subfolder_path = os.path.join(folder_path, subfolder_name)
+    file_path = os.path.join(subfolder_path, filename)
+    return os.path.exists(file_path)
+
 def train_and_evaluate(hyperparams, dataset_name, experiment_results_dir='/home/olga/GraphNeuralNetwork', num_repeats=3):
     # Load dataset
     if dataset_name == 'ogbg-molhiv' or dataset_name == 'ogbg-molpcba':
@@ -211,11 +216,6 @@ def train_and_evaluate(hyperparams, dataset_name, experiment_results_dir='/home/
 
     # Iterate over hyperparameter configurations
     for i, hyperparams_dict in enumerate(hyperparams):
-        # Check if this configuration has already been evaluated
-        if hyperparams_dict in hyperparams_list:
-            print(
-                f"Hyperparameter configuration {i} already evaluated for dataset {dataset_name}.")
-            continue
 
         # Train and evaluate the model
         print(
@@ -223,6 +223,15 @@ def train_and_evaluate(hyperparams, dataset_name, experiment_results_dir='/home/
 
         # Repeat the experiment for the specified number of times
         for repeat in range(num_repeats):
+
+            # Check if the repeat_i.json file exists
+            repeat_filename = f"repeat_{repeat}.json"
+            repeat_filepath = os.path.join(
+                dataset_dir, f"hpconfig_{i}", repeat_filename)
+            if os.path.exists(repeat_filepath):
+                print(
+                    f"Repeat {repeat} for hyperparameter configuration {i} already evaluated for dataset {dataset_name}.")
+                continue
             model = create_model(
                 node_features=dataset.graphs[0]['node_feat'].shape[-1], **ds_config, **hyperparams_dict)
 
