@@ -115,7 +115,77 @@ def config(dataset_name):
     return config
 
 
-def train_and_evaluate(hyperparams, dataset_name, experiment_results_dir='/home/olga/GraphNeuralNetwork'):
+# def train_and_evaluate(hyperparams, dataset_name, experiment_results_dir='/home/olga/GraphNeuralNetwork'):
+#     # Load dataset
+#     if dataset_name == 'ogbg-molhiv' or dataset_name == 'ogbg-molpcba':
+#         dataset = GraphPropPredDataset(name=dataset_name)
+#     else:
+#         dataset = NodePropPredDataset(name=dataset_name)
+
+#     tfds = b.make_tf_datasets(dataset)
+#     training_batch = tfds['train']
+#     validation_batch = tfds['valid']
+#     test_data = tfds['test']
+#     ds_config = config(dataset_name=dataset_name)
+#     evaluator = ds_config['evaluator']
+
+#     # Set up directory structure for experiment results
+#     dataset_dir = os.path.join(experiment_results_dir, dataset_name)
+#     os.makedirs(dataset_dir, exist_ok=True)
+#     hyperparams_path = os.path.join(dataset_dir, 'hyperparams.json')
+#     if os.path.exists(hyperparams_path):
+#         with open(hyperparams_path, 'r') as f:
+#             hyperparams_list = json.load(f)
+#     else:
+#         hyperparams_list = []
+
+#     # Iterate over hyperparameter configurations
+#     for i, hyperparams_dict in enumerate(hyperparams):
+#         # Check if this configuration has already been evaluated
+#         if hyperparams_dict in hyperparams_list:
+#             print(
+#                 f"Hyperparameter configuration {i} already evaluated for dataset {dataset_name}.")
+#             continue
+
+#         # Train and evaluate the model
+#         print(
+#             f"Evaluating hyperparameter configuration {i} for dataset {dataset_name}.")
+#         model = create_model(
+#             node_features=dataset.graphs[0]['node_feat'].shape[-1], **ds_config, **hyperparams_dict)
+
+#         # Define callback and eval metrics
+#         callback = [tf.keras.callbacks.EarlyStopping(
+#             monitor='val_loss', patience=50)]
+#         history = model.fit(
+#             training_batch, validation_data=validation_batch, epochs=1, callbacks=[callback])
+#         test_loss, *metrics = model.evaluate(test_data)
+#         test_predictions = model.predict(test_data)  # for ogb evaluator
+#         input_dict = {"y_true": getLabels(
+#             test_data), "y_pred": test_predictions}
+#         result_dict = evaluator.eval(input_dict)
+#         test_rocauc_value = result_dict["rocauc"]
+
+#         # Write results to JSON file
+#         hyperparams_dir = os.path.join(dataset_dir, f"hpconfig_{i}")
+#         os.makedirs(hyperparams_dir, exist_ok=True)
+#         repeat_filename = f"repeat_{len(os.listdir(hyperparams_dir))}.json"
+#         repeat_filepath = os.path.join(hyperparams_dir, repeat_filename)
+#         with open(repeat_filepath, 'w') as f:
+#             json.dump({
+#                 'hyperparams': hyperparams_dict,
+#                 'test_loss': test_loss,
+#                 'test_acc': metrics,
+#                 'test_rocauc': test_rocauc_value,
+#                 'training_history': history.history
+#             }, f)
+
+#         # Write hyperparameters list to JSON file
+#         hyperparams_list.append(hyperparams_dict)
+#         with open(hyperparams_path, 'w') as f:
+#             json.dump(hyperparams_list, f)
+
+
+def train_and_evaluate(hyperparams, dataset_name, experiment_results_dir='/home/olga/GraphNeuralNetwork', num_repeats=3):
     # Load dataset
     if dataset_name == 'ogbg-molhiv' or dataset_name == 'ogbg-molpcba':
         dataset = GraphPropPredDataset(name=dataset_name)
@@ -128,7 +198,7 @@ def train_and_evaluate(hyperparams, dataset_name, experiment_results_dir='/home/
     test_data = tfds['test']
     ds_config = config(dataset_name=dataset_name)
     evaluator = ds_config['evaluator']
-    
+
     # Set up directory structure for experiment results
     dataset_dir = os.path.join(experiment_results_dir, dataset_name)
     os.makedirs(dataset_dir, exist_ok=True)
@@ -150,63 +220,39 @@ def train_and_evaluate(hyperparams, dataset_name, experiment_results_dir='/home/
         # Train and evaluate the model
         print(
             f"Evaluating hyperparameter configuration {i} for dataset {dataset_name}.")
-        model = create_model(
-            node_features=dataset.graphs[0]['node_feat'].shape[-1], **ds_config, **hyperparams_dict)
-        
-        # Define callback  and eval metrics 
-        callback = [tf.keras.callbacks.EarlyStopping(
-            monitor='val_loss', patience=50)]
-        history = model.fit(
-            training_batch, validation_data=validation_batch, epochs=1, callbacks=[callback])
-        test_loss, *metrics = model.evaluate(test_data)
-        test_predictions = model.predict(test_data)  # for ogb evaluator
-        input_dict = {"y_true": getLabels(
-            test_data), "y_pred": test_predictions}
-        result_dict = evaluator.eval(input_dict)
-        test_rocauc_value = result_dict["rocauc"]
 
-        # Write results to JSON file
-        hyperparams_list.append(hyperparams_dict)
-        hyperparams_dir = os.path.join(dataset_dir, f"hpconfig_{i}")
-        os.makedirs(hyperparams_dir, exist_ok=True)
-        repeat_filename = f"repeat_{len(os.listdir(hyperparams_dir))}.json"
-        repeat_filepath = os.path.join(hyperparams_dir, repeat_filename)
-        with open(repeat_filepath, 'w') as f:
-            json.dump({
-                'hyperparams': hyperparams_dict,
-                'test_loss': test_loss,
-                'test_acc': metrics,
-                'test_rocauc': test_rocauc_value,
-                'training_history': history.history
-            }, f)
+        # Repeat the experiment for the specified number of times
+        for repeat in range(num_repeats):
+            model = create_model(
+                node_features=dataset.graphs[0]['node_feat'].shape[-1], **ds_config, **hyperparams_dict)
+
+            # Define callback and eval metrics
+            callback = [tf.keras.callbacks.EarlyStopping(
+                monitor='val_loss', patience=50)]
+            history = model.fit(
+                training_batch, validation_data=validation_batch, epochs=1, callbacks=[callback])
+            test_loss, *metrics = model.evaluate(test_data)
+            test_predictions = model.predict(test_data)  # for ogb evaluator
+            input_dict = {"y_true": getLabels(
+                test_data), "y_pred": test_predictions}
+            result_dict = evaluator.eval(input_dict)
+            test_rocauc_value = result_dict["rocauc"]
+
+            # Write results to JSON file
+            hyperparams_dir = os.path.join(dataset_dir, f"hpconfig_{i}")
+            os.makedirs(hyperparams_dir, exist_ok=True)
+            repeat_filename = f"repeat_{repeat}.json"
+            repeat_filepath = os.path.join(hyperparams_dir, repeat_filename)
+            with open(repeat_filepath, 'w') as f:
+                json.dump({
+                    'hyperparams': hyperparams_dict,
+                    'test_loss': test_loss,
+                    'test_acc': metrics,
+                    'test_rocauc': test_rocauc_value,
+                    'training_history': history.history
+                }, f)
 
         # Write hyperparameters list to JSON file
+        hyperparams_list.append(hyperparams_dict)
         with open(hyperparams_path, 'w') as f:
             json.dump(hyperparams_list, f)
-
-
-# create method, which sets up the right directory structure 
-
-def setup_directory_structure(hyperparams, dataset_name, experiment_results_dir='/home/olga/GraphNeuralNetwork'):
-    # Load dataset
-    if dataset_name == 'ogbg-molhiv' or dataset_name == 'ogbg-molpcba':
-        dataset = GraphPropPredDataset(name=dataset_name)
-    else:
-        dataset = NodePropPredDataset(name=dataset_name)
-
-    tfds = b.make_tf_datasets(dataset)
-    training_batch = tfds['train']
-    validation_batch = tfds['valid']
-    test_data = tfds['test']
-    ds_config = config(dataset_name=dataset_name)
-    evaluator = ds_config['evaluator']
-
-    # Set up directory structure for experiment results
-    dataset_dir = os.path.join(experiment_results_dir, dataset_name)
-    os.makedirs(dataset_dir, exist_ok=True)
-    hyperparams_path = os.path.join(dataset_dir, 'hyperparams.json')
-    if os.path.exists(hyperparams_path):
-        with open(hyperparams_path, 'r') as f:
-            hyperparams_list = json.load(f)
-    else:
-        hyperparams_list = []
