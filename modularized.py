@@ -8,14 +8,14 @@ import gin
 # Method for Model input specification
 
 
-def create_input(node_features, include_mask=False):
+def create_input(node_features, mask_dim=0):
     inputs = {'X': keras.Input(shape=(node_features,), dtype=tf.float32, name='X'),
               'ref_A': keras.Input((), dtype=tf.int32, name='ref_A'),
               'ref_B': keras.Input((), dtype=tf.int32, name='ref_B'),
               'num_nodes': keras.Input((), dtype=tf.int32, name='num_nodes')}
-    if include_mask:
+    if mask_dim > 0:
         inputs['label_mask'] = keras.Input(
-            node_features, dtype=tf.bool, name='label_mask')
+            mask_dim, dtype=tf.bool, name='label_mask')
     return inputs
 
 # Inputs with values in batching

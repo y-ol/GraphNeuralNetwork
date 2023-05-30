@@ -17,6 +17,7 @@ from ogb.nodeproppred import NodePropPredDataset
 import json
 import os
 from keras import callbacks
+import funcy as fy 
 
 
 def getId(entry):
@@ -33,6 +34,12 @@ def getLabels(set):
         labels.append(entry[1].numpy())
     return np.concatenate(labels, axis=0)
 
+def getLabelMask(set):
+    entry_list = list(set)
+    labels = list()
+    for entry in entry_list:
+        labels.append(entry[0]["label_mask"].numpy())
+    return np.concatenate(labels, axis=0)
 
 param_grid = {'num_layers': [1, 2, 3, 4, 5, 6],
               'learning_rate': [0.0001, 0.001, 0.01],
@@ -49,7 +56,7 @@ param_combos = list(ParameterGrid(param_grid))
 def create_model(activation, convo_type, learning_rate,
                  num_layers, probability, regularization,  units, node_features, include_mask, loss, metrics, num_tasks,
                  **kwargs) -> keras.Model:
-    input = m.create_input(node_features, include_mask)
+    input = m.create_input(node_features, num_tasks if include_mask else 0)
     layer_list = list()
     optimizer = tf.optimizers.Adam(learning_rate=learning_rate)
     for i in range(num_layers):
@@ -114,77 +121,6 @@ def config(dataset_name):
 
     return config
 
-
-# def train_and_evaluate(hyperparams, dataset_name, experiment_results_dir='/home/olga/GraphNeuralNetwork'):
-#     # Load dataset
-#     if dataset_name == 'ogbg-molhiv' or dataset_name == 'ogbg-molpcba':
-#         dataset = GraphPropPredDataset(name=dataset_name)
-#     else:
-#         dataset = NodePropPredDataset(name=dataset_name)
-
-#     tfds = b.make_tf_datasets(dataset)
-#     training_batch = tfds['train']
-#     validation_batch = tfds['valid']
-#     test_data = tfds['test']
-#     ds_config = config(dataset_name=dataset_name)
-#     evaluator = ds_config['evaluator']
-
-#     # Set up directory structure for experiment results
-#     dataset_dir = os.path.join(experiment_results_dir, dataset_name)
-#     os.makedirs(dataset_dir, exist_ok=True)
-#     hyperparams_path = os.path.join(dataset_dir, 'hyperparams.json')
-#     if os.path.exists(hyperparams_path):
-#         with open(hyperparams_path, 'r') as f:
-#             hyperparams_list = json.load(f)
-#     else:
-#         hyperparams_list = []
-
-#     # Iterate over hyperparameter configurations
-#     for i, hyperparams_dict in enumerate(hyperparams):
-#         # Check if this configuration has already been evaluated
-#         if hyperparams_dict in hyperparams_list:
-#             print(
-#                 f"Hyperparameter configuration {i} already evaluated for dataset {dataset_name}.")
-#             continue
-
-#         # Train and evaluate the model
-#         print(
-#             f"Evaluating hyperparameter configuration {i} for dataset {dataset_name}.")
-#         model = create_model(
-#             node_features=dataset.graphs[0]['node_feat'].shape[-1], **ds_config, **hyperparams_dict)
-
-#         # Define callback and eval metrics
-#         callback = [tf.keras.callbacks.EarlyStopping(
-#             monitor='val_loss', patience=50)]
-#         history = model.fit(
-#             training_batch, validation_data=validation_batch, epochs=1, callbacks=[callback])
-#         test_loss, *metrics = model.evaluate(test_data)
-#         test_predictions = model.predict(test_data)  # for ogb evaluator
-#         input_dict = {"y_true": getLabels(
-#             test_data), "y_pred": test_predictions}
-#         result_dict = evaluator.eval(input_dict)
-#         test_rocauc_value = result_dict["rocauc"]
-
-#         # Write results to JSON file
-#         hyperparams_dir = os.path.join(dataset_dir, f"hpconfig_{i}")
-#         os.makedirs(hyperparams_dir, exist_ok=True)
-#         repeat_filename = f"repeat_{len(os.listdir(hyperparams_dir))}.json"
-#         repeat_filepath = os.path.join(hyperparams_dir, repeat_filename)
-#         with open(repeat_filepath, 'w') as f:
-#             json.dump({
-#                 'hyperparams': hyperparams_dict,
-#                 'test_loss': test_loss,
-#                 'test_acc': metrics,
-#                 'test_rocauc': test_rocauc_value,
-#                 'training_history': history.history
-#             }, f)
-
-#         # Write hyperparameters list to JSON file
-#         hyperparams_list.append(hyperparams_dict)
-#         with open(hyperparams_path, 'w') as f:
-#             json.dump(hyperparams_list, f)
-
-
 def check_file_existence(folder_path, subfolder_name, filename):
     subfolder_path = os.path.join(folder_path, subfolder_name)
     file_path = os.path.join(subfolder_path, filename)
@@ -197,22 +133,21 @@ def train_and_evaluate(hyperparams, dataset_name, experiment_results_dir='/home/
     else:
         dataset = NodePropPredDataset(name=dataset_name)
 
-    tfds = b.make_tf_datasets(dataset)
+    ds_config = config(dataset_name=dataset_name)
+    evaluator = ds_config['evaluator']
+    tfds = b.make_tf_datasets(dataset, **ds_config)
     training_batch = tfds['train']
     validation_batch = tfds['valid']
     test_data = tfds['test']
-    ds_config = config(dataset_name=dataset_name)
-    evaluator = ds_config['evaluator']
 
     # Set up directory structure for experiment results
     dataset_dir = os.path.join(experiment_results_dir, dataset_name)
     os.makedirs(dataset_dir, exist_ok=True)
     hyperparams_path = os.path.join(dataset_dir, 'hyperparams.json')
-    if os.path.exists(hyperparams_path):
-        with open(hyperparams_path, 'r') as f:
-            hyperparams_list = json.load(f)
-    else:
-        hyperparams_list = []
+    if not os.path.exists(hyperparams_path):
+        with open(hyperparams_path, 'w') as f:
+            # Write hyperparameters list to JSON file
+            json.dump(hyperparams, f)
 
     # Iterate over hyperparameter configurations
     for i, hyperparams_dict in enumerate(hyperparams):
@@ -236,16 +171,30 @@ def train_and_evaluate(hyperparams, dataset_name, experiment_results_dir='/home/
                 node_features=dataset.graphs[0]['node_feat'].shape[-1], **ds_config, **hyperparams_dict)
 
             # Define callback and eval metrics
-            callback = [tf.keras.callbacks.EarlyStopping(
-                monitor='val_loss', patience=50)]
+            early_stopping = tf.keras.callbacks.EarlyStopping(
+                monitor='val_loss', patience=50, restore_best_weights=True)
+            callback = [early_stopping]
             history = model.fit(
                 training_batch, validation_data=validation_batch, epochs=1, callbacks=[callback])
             test_loss, *metrics = model.evaluate(test_data)
             test_predictions = model.predict(test_data)  # for ogb evaluator
-            input_dict = {"y_true": getLabels(
-                test_data), "y_pred": test_predictions}
-            result_dict = evaluator.eval(input_dict)
-            test_rocauc_value = result_dict["rocauc"]
+            tf.keras.backend.clear_session()
+            y_true_test = getLabels(test_data)
+            if ds_config["include_mask"]:
+                label_mask_test = getLabelMask(test_data)
+                label_idxs_test = np.where(label_mask_test)
+                full_y_true_test = np.full(label_mask_test.shape, np.nan, dtype=np.float32)
+                full_y_pred_test = np.full(label_mask_test.shape, np.nan, dtype=np.float32)
+                full_y_true_test[label_idxs_test] = y_true_test.reshape(-1)
+                full_y_pred_test[label_idxs_test] = test_predictions.reshape(-1)
+                input_dict = {"y_true": full_y_true_test,
+                              "y_pred": full_y_pred_test}
+            else:
+                test_predictions = test_predictions.reshape(y_true_test.shape)
+                input_dict = {"y_true": y_true_test, "y_pred": test_predictions}
+            result_dict = evaluator.eval(input_dict) 
+
+            metric = fy.first(result_dict.keys())
 
             # Write results to JSON file
             hyperparams_dir = os.path.join(dataset_dir, f"hpconfig_{i}")
@@ -257,11 +206,10 @@ def train_and_evaluate(hyperparams, dataset_name, experiment_results_dir='/home/
                     'hyperparams': hyperparams_dict,
                     'test_loss': test_loss,
                     'test_acc': metrics,
-                    'test_rocauc': test_rocauc_value,
-                    'training_history': history.history
+                    'test_'+ metric: result_dict[metric], 
+                    #'test_rocauc': test_rocauc_value,
+                    'training_history': history.history,
+                    'train_loss': history.history['loss'][early_stopping.best_epoch],
+                    'val_loss': history.history['val_loss'][early_stopping.best_epoch]
+                
                 }, f)
-
-        # Write hyperparameters list to JSON file
-        hyperparams_list.append(hyperparams_dict)
-        with open(hyperparams_path, 'w') as f:
-            json.dump(hyperparams_list, f)

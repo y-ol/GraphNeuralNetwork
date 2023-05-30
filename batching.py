@@ -43,7 +43,7 @@ def combine_graphs_labels(graph_batches, label_batches, include_mask=False):
             yield graph_batch, label_batch[label_mask].reshape((-1, 1))
 
 
-def make_tf_datasets(dataset, batchsize=30, include_mask=False):
+def make_tf_datasets(dataset, batchsize=30, include_mask=False, **kwargs):
     if hasattr(dataset, "graphs"):
         graphs = dataset.graphs
     else:

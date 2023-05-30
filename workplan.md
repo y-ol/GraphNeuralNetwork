@@ -35,4 +35,4 @@ experiment_results:
     5. Training + Val + Test Metriken (inkl. Loss) in einem Dict/Liste speichern (z.B. mit den Keys: train_loss, val_loss, test_loss, train_accuracy, val_accuracy, test_accuracy). (Optional, nice-to-have: Die Keras-History (Return-Wert von model.fit) in eine Liste umwandeln und auch in das Ergebnis-Dict packen).
     6. Das Ergebnis-Dict in der Datei hpconfig_i/repeat_j.json abspeichern (json.dump)
 3. Ergebnisse aggregieren:
-    1.
+    1. JSON -> CSV -> LaTeX (alternativ matplotlib)
