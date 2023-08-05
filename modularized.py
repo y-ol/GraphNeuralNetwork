@@ -41,7 +41,5 @@ def create_model(list_layers, initial_input, drop_type, p, units=32, activation=
              outputs=output))
     return model
 
-
-# Node Prediction logic 2do
 # Units = 1 -> Regression
 # Units = num_classes

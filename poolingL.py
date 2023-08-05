@@ -1,9 +1,6 @@
 # Mean - Pooling
 import tensorflow as tf
 from tensorflow import keras
-from abc import ABCMeta, abstractmethod
-import convL
-import convo
 
 # readout = Pooling
 # result tf.datset conversion
@@ -17,9 +14,8 @@ def add_graph_idx(input):  # segment ids
         **input,
         "graph_idx": graph_idx,
         "graph_count": N}
-
-
-class Pooling(keras.layers.Layer, metaclass=ABCMeta):
+ 
+class Pooling(keras.layers.Layer):
     def __init__(self, activation='relu'):
         super().__init__()
         self.activation = activation

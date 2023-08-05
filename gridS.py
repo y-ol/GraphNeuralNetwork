@@ -1,8 +1,3 @@
-import aim
-from aim import Repo
-from aim.tensorflow import AimCallback
-from aim import Run
-from aim.sdk.run import Run
 import tensorflow as tf
 import pandas as pd
 from tensorflow import keras
@@ -16,7 +11,6 @@ from ogb.graphproppred import GraphPropPredDataset
 from ogb.nodeproppred import NodePropPredDataset
 import json
 import os
-from keras import callbacks
 import funcy as fy 
 
 
@@ -205,7 +199,7 @@ def train_and_evaluate(hyperparams, dataset_name, experiment_results_dir='/home/
                 json.dump({
                     'hyperparams': hyperparams_dict,
                     'test_loss': test_loss,
-                    'test_acc': metrics,
+                    'test_metrics': metrics,
                     'test_'+ metric: result_dict[metric], 
                     #'test_rocauc': test_rocauc_value,
                     'training_history': history.history,

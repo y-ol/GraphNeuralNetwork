@@ -32,15 +32,15 @@ def get_folder_paths(directory, ds_list):
     return list_pf_paths
 
 
-def calculate_average_loss(directory):
+def calculate_average_loss(ds_directory):
     hpconfig_folders = [entry.name for entry in os.scandir(
-        directory) if entry.is_dir()]
-    results = []
+        ds_directory) if entry.is_dir()]
+    best_result = None
     lowest_average_loss = float('inf')
     best_hpconfig = None
 
     for hpconfig_folder in hpconfig_folders:
-        repeats_folder = os.path.join(directory, hpconfig_folder)
+        repeats_folder = os.path.join(ds_directory, hpconfig_folder)
         repeat_files = [entry.name for entry in os.scandir(
             repeats_folder) if entry.is_file() and entry.name.startswith('repeat_')]
         losses = []
@@ -53,23 +53,19 @@ def calculate_average_loss(directory):
                 losses.append(loss)
 
         average_loss = sum(losses) / len(losses)
-        results.append({
-            'hpconfig_folder': hpconfig_folder,
-            'hyperparams': repeat_data['hyperparams'],
-            'average_loss': average_loss
-        })
-
+        
         if average_loss < lowest_average_loss:
+            best_result=({'hpconfig_folder': hpconfig_folder,'hyperparams': repeat_data['hyperparams'],'average_loss': average_loss})
             lowest_average_loss = average_loss
             best_hpconfig = hpconfig_folder
 
     # Create a CSV file to store the results
-    results_file = os.path.join(directory, 'results.csv')
+    results_file = os.path.join(ds_directory, 'results.csv')
     with open(results_file, 'w', newline='') as csvfile:
         fieldnames = ['hpconfig_folder', 'hyperparams', 'average_loss']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
-        writer.writerows(results)
+        writer.writerows(best_result)
 
     return results_file, best_hpconfig
 
