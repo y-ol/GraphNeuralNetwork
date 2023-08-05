@@ -24,6 +24,7 @@ def dropout_mask(p, shape):
 
 
 def get_shape(tensor, row_wise):
+    """DropOut and NodeSampling"""
     if row_wise:
         shape = ((tf.shape(tensor)[0]), 1)
     else:
@@ -32,17 +33,17 @@ def get_shape(tensor, row_wise):
 
 
 def get_edgedropshape(tensor, ref, row_wise):
+    """DropEdge and GDC"""
     if row_wise:
         shape = (tf.shape(ref)[0], 1)
     else:
-        # dimensionality of the feature vectors
-        # [] is intern slicing op with 0
         shape = (tf.shape(ref)[0], tf.shape(tensor)[1])
     return shape
 
 
 def convolution(X, ref_A,  ref_B, mask=None):
-    #X_a = tf.gather(X, ref_A, axis=0)
+    """ Performs convolution with optional mask"""
+    # X_a = tf.gather(X, ref_A, axis=0)
     X_b = tf.gather(X, ref_B, axis=0)
     if mask is not None:
         X_b *= mask
@@ -67,6 +68,7 @@ def normalization(X, ref_A, ref_B, mask=None, node_mask=False):
 
 
 def normalize_convo(X, ref_A, ref_B, mask=None, node_mask=False):
+    """ Combines convolution and normalization in a single step with optional masking support"""
     conv_X = normalization(X, ref_A, ref_B, mask, node_mask)
     if node_mask:
         conv_X = convolution(conv_X * mask, ref_A, ref_B)
@@ -77,6 +79,3 @@ def normalize_convo(X, ref_A, ref_B, mask=None, node_mask=False):
 
 # node mask --> true : NodeDropOut, false : EdgeDropOut/GDC
 # mask = dropout_mask result
-
-
-# NodeSampling wie im paper

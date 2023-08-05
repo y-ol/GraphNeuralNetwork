@@ -8,6 +8,7 @@ import math
 
 
 def batching(graphs):
+    """Combines list of encoded batches(graphs) into a single encoded list """
     X = []
     ref_A = []
     ref_B = []
@@ -24,8 +25,8 @@ def batching(graphs):
             'ref_B': np.concatenate(ref_B),
             'num_nodes': np.array(num_nodes)}
 
-
 def converter(graph):
+    """Converts an OGB graph in our format"""
     return {'X': graph['node_feat'],
             'ref_A': graph['edge_index'][0],
             'ref_B': graph['edge_index'][1]
@@ -33,6 +34,8 @@ def converter(graph):
 
 
 def combine_graphs_labels(graph_batches, label_batches, include_mask=False):
+    """If there are missing values in labels, label_mask shows where nan values are 
+    then this matrix is used to filter out the int values, which are then turned into column vector"""
     if not include_mask:
         yield from zip(graph_batches, label_batches)
     else:
@@ -40,7 +43,7 @@ def combine_graphs_labels(graph_batches, label_batches, include_mask=False):
             label_batch = np.array(label_batch)
             label_mask = label_batch == label_batch
             graph_batch["label_mask"] = label_mask
-            yield graph_batch, label_batch[label_mask].reshape((-1, 1))
+            yield graph_batch, label_batch[label_mask].reshape((-1, 1)) 
 
 
 def make_tf_datasets(dataset, batchsize=30, include_mask=False, **kwargs):
@@ -48,12 +51,12 @@ def make_tf_datasets(dataset, batchsize=30, include_mask=False, **kwargs):
         graphs = dataset.graphs
     else:
         graphs = [dataset.graph]
-    node_features = graphs[0]['node_feat'].shape[-1]
+    node_features = graphs[0]['node_feat'].shape[-1] # (--> feature vector) -> num of node_features
     split_idx = dataset.get_idx_split()
     final_batch = dict()
     final_labels = dict()
     for key, value in split_idx.items():
-        final_labels[key] = list((fy.chunks(batchsize, dataset.labels[value])))
+        final_labels[key] = list((fy.chunks(batchsize, dataset.labels[value]))) # gather -> bc OGB splits by providing indices 
 
     for key, value in split_idx.items():
         final_batch[key] = list(map(batching, fy.chunks(
