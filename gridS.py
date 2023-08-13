@@ -170,7 +170,10 @@ def train_and_evaluate(hyperparams, dataset_name, experiment_results_dir='/home/
             callback = [early_stopping]
             history = model.fit(
                 training_batch, validation_data=validation_batch, epochs=1, callbacks=[callback])
-            test_loss, *metrics = model.evaluate(test_data)
+            test_metrics = model.evaluate(test_data, return_dict=True)
+            test_metrics_keras = dict() 
+            for key, value in test_metrics.items(): 
+                test_metrics_keras['test_'+key] = value
             test_predictions = model.predict(test_data)  # for ogb evaluator
             tf.keras.backend.clear_session()
             y_true_test = getLabels(test_data)
@@ -198,8 +201,7 @@ def train_and_evaluate(hyperparams, dataset_name, experiment_results_dir='/home/
             with open(repeat_filepath, 'w') as f:
                 json.dump({
                     'hyperparams': hyperparams_dict,
-                    'test_loss': test_loss,
-                    'test_metrics': metrics,
+                    **test_metrics_keras,  
                     'test_'+ metric: result_dict[metric], 
                     #'test_rocauc': test_rocauc_value,
                     'training_history': history.history,

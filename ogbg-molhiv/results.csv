@@ -1,4 +1,4 @@
 hpconfig_folder,hyperparams,average_loss
-hpconfig_2,"{'activation': 'relu', 'convo_type': 'gin', 'learning_rate': 0.0001, 'num_layers': 1, 'optimizer': 'Adam', 'probability': 0.3, 'regularization': 'NodeSampling', 'units': 32}",0.37412576874097186
-hpconfig_1,"{'activation': 'relu', 'convo_type': 'gin', 'learning_rate': 0.0001, 'num_layers': 1, 'optimizer': 'Adam', 'probability': 0.3, 'regularization': 'DropOut', 'units': 64}",0.14162719249725342
-hpconfig_0,"{'activation': 'relu', 'convo_type': 'gin', 'learning_rate': 0.0001, 'num_layers': 1, 'optimizer': 'Adam', 'probability': 0.3, 'regularization': 'DropOut', 'units': 32}",0.20164371530214945
+hpconfig_2,"{'activation': 'relu', 'convo_type': 'gin', 'learning_rate': 0.0001, 'num_layers': 1, 'optimizer': 'Adam', 'probability': 0.3, 'regularization': 'NodeSampling', 'units': 32}",0.1706941376129786
+hpconfig_1,"{'activation': 'relu', 'convo_type': 'gin', 'learning_rate': 0.0001, 'num_layers': 1, 'optimizer': 'Adam', 'probability': 0.3, 'regularization': 'DropOut', 'units': 64}",0.14287534356117249
+hpconfig_0,"{'activation': 'relu', 'convo_type': 'gin', 'learning_rate': 0.0001, 'num_layers': 1, 'optimizer': 'Adam', 'probability': 0.3, 'regularization': 'DropOut', 'units': 32}",0.42599648237228394
