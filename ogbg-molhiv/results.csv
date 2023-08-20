@@ -1,4 +1,0 @@
-hpconfig_folder,hyperparams,average_loss
-hpconfig_2,"{'activation': 'relu', 'convo_type': 'gin', 'learning_rate': 0.0001, 'num_layers': 1, 'optimizer': 'Adam', 'probability': 0.3, 'regularization': 'NodeSampling', 'units': 32}",0.1706941376129786
-hpconfig_1,"{'activation': 'relu', 'convo_type': 'gin', 'learning_rate': 0.0001, 'num_layers': 1, 'optimizer': 'Adam', 'probability': 0.3, 'regularization': 'DropOut', 'units': 64}",0.14287534356117249
-hpconfig_0,"{'activation': 'relu', 'convo_type': 'gin', 'learning_rate': 0.0001, 'num_layers': 1, 'optimizer': 'Adam', 'probability': 0.3, 'regularization': 'DropOut', 'units': 32}",0.42599648237228394

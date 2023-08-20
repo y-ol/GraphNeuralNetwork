@@ -75,41 +75,46 @@ def config(dataset_name):
         config['num_tasks'] = 1
         config['loss'] = tf.keras.losses.BinaryCrossentropy(
             from_logits=True)
-        config['metrics'] = [tf.metrics.AUC(), tf.metrics.BinaryAccuracy(),
-                             tf.metrics.Precision(), tf.metrics.Recall()]
+        config['metrics'] = [tf.metrics.AUC(name = 'auc'), tf.metrics.BinaryAccuracy(name = 'bin_accuracy'),
+                             tf.metrics.Precision(name = 'precision'), tf.metrics.Recall(name = 'recall')]
         config['evaluator'] = g.Evaluator(name='ogbg-molhiv')
     elif dataset_name == 'ogbg-molpcba':
         config['num_tasks'] = 128
         config['loss'] = tf.keras.losses.BinaryCrossentropy(
             from_logits=True)
-        config['metrics'] = [tf.metrics.BinaryAccuracy(),
-                             tf.metrics.Precision(), tf.metrics.Recall()]
+        config['metrics'] = [tf.metrics.BinaryAccuracy(name = 'bin_accuracy'),
+                             tf.metrics.Precision(name ='precision'), tf.metrics.Recall(name = 'recall')]
         config['evaluator'] = g.Evaluator(name='ogbg-molpcba')
         config['include_mask'] = True
     elif dataset_name == 'ogbn-products':  # multiclass classification
         config['num_tasks'] = 1
         config['loss'] = tf.keras.losses.CategoricalCrossentropy(
             from_logits=True)
-        config['metrics'] = [tf.keras.metrics.CategoricalAccuracy(),
-                             tf.keras.metrics.TopKCategoricalAccuracy(k=5)]
+        config['metrics'] = [tf.keras.metrics.CategoricalAccuracy(name ='categorical_accuracy'),
+                             tf.keras.metrics.TopKCategoricalAccuracy(name = 'top5categorical_accuracy',k=5)]
         config['evaluator'] = n.Evaluator(name='ogbn-products')
         # no missing label values
     elif dataset_name == 'ogbn-proteins':  # binary classification
         config['num_tasks'] = 112
         config['loss'] = tf.keras.losses.BinaryCrossentropy(
             from_logits=True)
-        config['metrics'] = [tf.metrics.AUC(), tf.metrics.BinaryAccuracy(),
-                             tf.metrics.Precision(), tf.metrics.Recall()]
+        config['metrics'] = [tf.metrics.AUC(name = 'auc'), tf.metrics.BinaryAccuracy(name = 'bin_accuracy'),
+                             tf.metrics.Precision(name = 'precision'), tf.metrics.Recall(name = 'recall')]
         config['evaluator'] = n.Evaluator(name='ogbn-proteins')
         # no missing label values
     elif dataset_name == 'ogbn-arxiv':  # multiclass classification
         config['num_tasks'] = 1
         config['loss'] = tf.keras.losses.CategoricalCrossentropy(
             from_logits=True)
-        config['metrics'] = [tf.metrics.CategoricalAccuracy(),
-                             tf.metrics.TopKCategoricalAccuracy(k=20)]
+        config['metrics'] = [tf.metrics.CategoricalAccuracy(name='categorical_accuracy'),
+                             tf.metrics.TopKCategoricalAccuracy(name = 'top20categorical_accuracy', k=20)]
         config['evaluator'] = n.Evaluator(name='ogbn-arxiv')
         # no missing label values
+    elif dataset_name == 'ogbg-molesol' or dataset_name == 'ogbg-molfreesolv' or dataset_name == 'ogbg-mollipo': 
+        config['num_tasks'] = 1 
+        config['loss'] = tf.keras.losses.MSE
+        config['metrics'] = [tf.keras.metrics.MeanAbsoluteError(name = 'MAE')]
+        config['evaluator'] = None 
     else:
         raise ValueError(f"Invalid dataset name: {dataset_name}")
 
@@ -120,9 +125,9 @@ def check_file_existence(folder_path, subfolder_name, filename):
     file_path = os.path.join(subfolder_path, filename)
     return os.path.exists(file_path)
 
-def train_and_evaluate(hyperparams, dataset_name, experiment_results_dir='/home/olga/GraphNeuralNetwork', num_repeats=3):
+def train_and_evaluate(hyperparams, dataset_name, epochs = 200, experiment_results_dir='/home/olga/GraphNeuralNetwork', num_repeats=3, filter = None):
     # Load dataset
-    if dataset_name == 'ogbg-molhiv' or dataset_name == 'ogbg-molpcba':
+    if dataset_name == 'ogbg-molhiv' or dataset_name == 'ogbg-molpcba' or dataset_name == 'ogbg-molesol' or dataset_name == 'ogbg-molfreesolv' or dataset_name == 'ogbg-mollipo':
         dataset = GraphPropPredDataset(name=dataset_name)
     else:
         dataset = NodePropPredDataset(name=dataset_name)
@@ -145,6 +150,8 @@ def train_and_evaluate(hyperparams, dataset_name, experiment_results_dir='/home/
 
     # Iterate over hyperparameter configurations
     for i, hyperparams_dict in enumerate(hyperparams):
+        if filter is not None and not filter(hyperparams_dict):
+            continue
 
         # Train and evaluate the model
         print(
@@ -169,7 +176,7 @@ def train_and_evaluate(hyperparams, dataset_name, experiment_results_dir='/home/
                 monitor='val_loss', patience=50, restore_best_weights=True)
             callback = [early_stopping]
             history = model.fit(
-                training_batch, validation_data=validation_batch, epochs=1, callbacks=[callback])
+                training_batch, validation_data=validation_batch, epochs=epochs, callbacks=[callback])
             test_metrics = model.evaluate(test_data, return_dict=True)
             test_metrics_keras = dict() 
             for key, value in test_metrics.items(): 
@@ -189,23 +196,24 @@ def train_and_evaluate(hyperparams, dataset_name, experiment_results_dir='/home/
             else:
                 test_predictions = test_predictions.reshape(y_true_test.shape)
                 input_dict = {"y_true": y_true_test, "y_pred": test_predictions}
-            result_dict = evaluator.eval(input_dict) 
+            if evaluator is not None: 
+                ogb_eval_result_dict = evaluator.eval(input_dict) 
+                metric = fy.first(ogb_eval_result_dict.keys())
 
-            metric = fy.first(result_dict.keys())
-
+            result_dict = {
+                'hyperparams': hyperparams_dict,
+                **test_metrics_keras,
+                # 'test_rocauc': test_rocauc_value,
+                'training_history': history.history,
+                'train_loss': history.history['loss'][early_stopping.best_epoch],
+                'val_loss': history.history['val_loss'][early_stopping.best_epoch]}
+            if evaluator is not None: 
+                result_dict['test_' + metric]=  ogb_eval_result_dict[metric]
+                
             # Write results to JSON file
             hyperparams_dir = os.path.join(dataset_dir, f"hpconfig_{i}")
             os.makedirs(hyperparams_dir, exist_ok=True)
             repeat_filename = f"repeat_{repeat}.json"
             repeat_filepath = os.path.join(hyperparams_dir, repeat_filename)
             with open(repeat_filepath, 'w') as f:
-                json.dump({
-                    'hyperparams': hyperparams_dict,
-                    **test_metrics_keras,  
-                    'test_'+ metric: result_dict[metric], 
-                    #'test_rocauc': test_rocauc_value,
-                    'training_history': history.history,
-                    'train_loss': history.history['loss'][early_stopping.best_epoch],
-                    'val_loss': history.history['val_loss'][early_stopping.best_epoch]
-                
-                }, f)
+                json.dump(result_dict, f)
