@@ -3,3 +3,5 @@ Logs
 dataset
 __pycache__
 .aim
+ogb*
+results.zip
