@@ -20,7 +20,7 @@ DATASETS  = e.datasets
 
 def run(dataset, epochs, num_repeats, num_layers, learning_rate, regularization, probability, activation, units, convo_type): 
     g.train_and_evaluate(hyperparams=g.param_combos, dataset_name=dataset, epochs = epochs, 
-                         experiment_results_dir='/home/olga/GraphNeuralNetwork', num_repeats=num_repeats, 
+                         experiment_results_dir='.', num_repeats=num_repeats, 
                          filter=e.filter_builder(num_layers=num_layers, learning_rate=learning_rate, regularization=regularization, probability=probability, activation=activation, units=units, convo_type=convo_type))
 
 if __name__ == "__main__":

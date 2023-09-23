@@ -5,3 +5,4 @@ __pycache__
 .aim
 ogb*
 results.zip
+.RESULTS_DIR

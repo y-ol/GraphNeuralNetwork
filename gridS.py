@@ -38,7 +38,7 @@ def getLabelMask(set):
 param_grid = {'num_layers': [1, 2, 3, 4, 5, 6],
               'learning_rate': [0.0001, 0.001, 0.01],
               'optimizer': ['Adam'],
-              'regularization': ['DropOut', 'NodeSampling', 'DropEdge', 'GDC'],
+              'regularization': [None, 'DropOut', 'NodeSampling', 'DropEdge', 'GDC'],
               'probability': [0.3, 0.5, 0.7],
               'activation': ['relu', 'sigmoid', 'tanh'],
               'units': [32, 64],
@@ -125,7 +125,7 @@ def check_file_existence(folder_path, subfolder_name, filename):
     file_path = os.path.join(subfolder_path, filename)
     return os.path.exists(file_path)
 
-def train_and_evaluate(hyperparams, dataset_name, epochs = 200, experiment_results_dir='/home/olga/GraphNeuralNetwork', num_repeats=3, filter = None):
+def train_and_evaluate(hyperparams, dataset_name, epochs = 200, experiment_results_dir='.', num_repeats=3, filter = None):
     # Load dataset
     if dataset_name == 'ogbg-molhiv' or dataset_name == 'ogbg-molpcba' or dataset_name == 'ogbg-molesol' or dataset_name == 'ogbg-molfreesolv' or dataset_name == 'ogbg-mollipo':
         dataset = GraphPropPredDataset(name=dataset_name)
