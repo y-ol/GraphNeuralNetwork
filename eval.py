@@ -11,11 +11,13 @@ from sklearn.model_selection import ParameterGrid
 
 results_dir = os.environ.get("RESULTS_DIR", "results")
 directory = "."
-datasets = ['ogbg-molhiv', 'ogbg-molpcba', 'ogbg-molesol', 'ogbg-molfreesolv', 'ogbg-mollipo']
+datasets = ['ogbg-molhiv', 'ogbg-molpcba',
+            'ogbg-molesol', 'ogbg-molfreesolv', 'ogbg-mollipo']
 
 
 def to_camel_case(snake_str):
     return "".join(x.capitalize() for x in snake_str.lower().split("_"))
+
 
 def to_lower_camel_case(snake_str):
     snake_str = str(snake_str)
@@ -24,14 +26,18 @@ def to_lower_camel_case(snake_str):
     camel_string = to_camel_case(snake_str)
     return snake_str[0].lower() + camel_string[1:]
 
-# Get the folder paths --> use this method 
-def get_folder_paths(directory, ds_list): 
+# Get the folder paths --> use this method
+
+
+def get_folder_paths(directory, ds_list):
     list_pf_paths = list()
-    for entry in ds_list: 
+    for entry in ds_list:
         list_pf_paths.append(os.path.join(directory, entry))
     return list_pf_paths
 
 # lookup relevant metric name for dataset
+
+
 def get_metric(dataset_name, val=False):
     metric = "val_" if val else "test_"
 
@@ -51,11 +57,13 @@ def get_metric(dataset_name, val=False):
             raise Exception("dataset unknown")
     return metric
 
+
 def min_or_max(metric):
     if ('loss' in metric):
         return min, np.Inf
     else:
         return max, -np.Inf
+
 
 def find_subdirs(dir):
     return [
@@ -63,6 +71,7 @@ def find_subdirs(dir):
         for entry in os.scandir(dir)
         if entry.is_dir()
     ]
+
 
 def add_metric_from_history(ds_directory, metric, mode=None):
     hpconfig_folders = find_subdirs(ds_directory)
@@ -92,6 +101,7 @@ def add_metric_from_history(ds_directory, metric, mode=None):
             with open(repeat_path, "w") as f:
                 json.dump(repeat_data, f)
 
+
 def find_best_result(ds_directory, filter):
     hpconfig_folders = find_subdirs(ds_directory)
     ds_name = os.path.split(ds_directory)[-1]
@@ -102,13 +112,13 @@ def find_best_result(ds_directory, filter):
     best_result = None
 
     hparam_configs = cache.read_cached_json(ds_directory+'/hyperparams.json')
-        
+
     for hpconfig_folder in hpconfig_folders:
         i = int(hpconfig_folder[9:])
         hpconfig = hparam_configs[i]
         if not filter(hpconfig):
             continue
-            
+
         repeats_folder = os.path.join(ds_directory, hpconfig_folder)
         repeat_files = [entry.name for entry in os.scandir(
             repeats_folder) if entry.is_file() and entry.name.startswith('repeat_')]
@@ -123,9 +133,8 @@ def find_best_result(ds_directory, filter):
             print(i, repeats_data[0])
         avg_val = np.mean([rd[val_metric] for rd in repeats_data])
 
-        
         if val_selector(avg_val, best_val) != best_val:
-            # Standard deviation 
+            # Standard deviation
             best_val = avg_val
             test_results = [rd[test_metric] for rd in repeats_data]
             avg_test = statistics.mean(test_results)
@@ -184,7 +193,7 @@ def create_grid_table(filters_params, datasets=datasets):
     return pd.DataFrame(columns)
 
 
-def create_plot_table(filters_params, col_param, col_vals, dataset, no_row_tune=True):
+def create_plot_table(filters_params, col_param, col_vals, dataset, no_row_tune=False):
     param_combos = list(ParameterGrid(filters_params))
     columns = dict()
     for param in filters_params.keys():
@@ -192,10 +201,12 @@ def create_plot_table(filters_params, col_param, col_vals, dataset, no_row_tune=
 
     for param_combo in param_combos:
         for param, val in param_combo.items():
-            columns[to_lower_camel_case(param)].append(str(val)) # .append(",".join(map(str, val)))
+            columns[to_lower_camel_case(param)].append(
+                str(val))  # .append(",".join(map(str, val)))
 
     if no_row_tune:
-        hpconfig = find_best_result(dataset, filter_builder(**{col_param: col_vals, **filters_params}))["hpconfig"]
+        hpconfig = find_best_result(dataset, filter_builder(
+            **{col_param: col_vals, **filters_params}))["hpconfig"]
     else:
         hpconfig = dict()
 
@@ -203,17 +214,19 @@ def create_plot_table(filters_params, col_param, col_vals, dataset, no_row_tune=
         avg_col = []
         std_col = []
         for param_combo in param_combos:
-            filter = filter_builder(**{**hpconfig, col_param: [col_val], **param_combo})
+            filter = filter_builder(
+                **{**hpconfig, col_param: [col_val], **param_combo})
             res = find_best_result(dataset, filter)
             avg_col.append(res["avg_test"])
             std_col.append(res["std_test"])
-        
+
         columns[f"{to_lower_camel_case(col_val)}Avg"] = avg_col
         columns[f"{to_lower_camel_case(col_val)}Std"] = std_col
 
     return pd.DataFrame(columns)
 
-def eval_table(): 
+
+def eval_table():
     """Creates the csv files."""
     grid: pd.DataFrame = create_grid_table({
         'convo_type': [['gcn'], ['gin']],
@@ -234,14 +247,17 @@ def eval_plot(model='gcn', axis='num_layers', dataset="ogbg-molfreesolv"):
         'convo_type': [model],
         **params
     }, 'regularization', [None, 'DropOut', 'NodeSampling', 'DropEdge', 'GDC'], dataset)
-    plot.to_csv(f"{results_dir}/{axis}_plot_{dataset[5:]}_{model}.csv", sep=";", index_label="id")
+    plot.to_csv(
+        f"{results_dir}/{axis}_plot_{dataset[5:]}_{model}.csv", sep=";", index_label="id")
     print(plot.shape)
     return plot
+
 
 @click.command()
 def cli():
     eval_table()
     eval_plot()
+
 
 if __name__ == "__main__":
     cli()
