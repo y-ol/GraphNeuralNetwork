@@ -95,8 +95,9 @@ def add_metric_from_history(ds_directory, metric, mode=None):
 def find_best_result(ds_directory, filter):
     hpconfig_folders = find_subdirs(ds_directory)
     ds_name = os.path.split(ds_directory)[-1]
-    val_metric = get_metric(ds_name, True)
     test_metric = get_metric(ds_name, False)
+    val_metric = get_metric(ds_name, True)
+    # val_metric = test_metric
     val_selector, best_val = min_or_max(val_metric)
     best_result = None
 
@@ -149,6 +150,8 @@ def filter_builder(**filter_params):
                 return False  # probability does not matter if no regularization is used => Fix 0.3 as a dummy value
             filter_params['probability'] = [0.3]
         for key, value_list in filter_params.items():
+            if not isinstance(value_list, list):
+                value_list = [value_list]
             if value_list is None or hparam_config[key] in value_list:
                 continue
             return False
@@ -181,7 +184,7 @@ def create_grid_table(filters_params, datasets=datasets):
     return pd.DataFrame(columns)
 
 
-def create_plot_table(filters_params, col_param, col_vals, dataset):
+def create_plot_table(filters_params, col_param, col_vals, dataset, no_row_tune=True):
     param_combos = list(ParameterGrid(filters_params))
     columns = dict()
     for param in filters_params.keys():
@@ -189,13 +192,18 @@ def create_plot_table(filters_params, col_param, col_vals, dataset):
 
     for param_combo in param_combos:
         for param, val in param_combo.items():
-            columns[to_lower_camel_case(param)].append(",".join(map(str, val)))
+            columns[to_lower_camel_case(param)].append(str(val)) # .append(",".join(map(str, val)))
+
+    if no_row_tune:
+        hpconfig = find_best_result(dataset, filter_builder(**{col_param: col_vals, **filters_params}))["hpconfig"]
+    else:
+        hpconfig = dict()
 
     for col_val in col_vals:
         avg_col = []
         std_col = []
         for param_combo in param_combos:
-            filter = filter_builder(**{col_param: [col_val], **param_combo})
+            filter = filter_builder(**{**hpconfig, col_param: [col_val], **param_combo})
             res = find_best_result(dataset, filter)
             avg_col.append(res["avg_test"])
             std_col.append(res["std_test"])
@@ -216,14 +224,17 @@ def eval_table():
     return grid
 
 
-def eval_plot(model='gcn', dataset="ogbg-molfreesolv"):
+def eval_plot(model='gcn', axis='num_layers', dataset="ogbg-molfreesolv"):
     "Generates data for number of layers comparison for model + dataset"
+    if axis == 'num_layers':
+        params = {'num_layers': [1, 2, 3, 4, 5, 6]}
+    elif axis == 'probability':
+        params = {'probability': [0.3, 0.5, 0.7]}
     plot = create_plot_table({
-        'convo_type': [[model]],
-        # 'probability': [[0.3]],
-        'num_layers': [[1], [2], [3], [4], [5], [6]]
-    }, 'regularization', [None, 'DropOut', 'NodeSampling', 'DropEdge', 'GDC'], "ogbg-molfreesolv")
-    plot.to_csv(f"{results_dir}/plot_{dataset[5:]}_{model}.csv", sep=";", index_label="id")
+        'convo_type': [model],
+        **params
+    }, 'regularization', [None, 'DropOut', 'NodeSampling', 'DropEdge', 'GDC'], dataset)
+    plot.to_csv(f"{results_dir}/{axis}_plot_{dataset[5:]}_{model}.csv", sep=";", index_label="id")
     print(plot.shape)
     return plot
 
